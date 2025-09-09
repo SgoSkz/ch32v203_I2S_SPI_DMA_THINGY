@@ -126,7 +126,7 @@ uint32_t iround(uint32_t num, uint32_t den) {
     return num % den < den>>1 ? num/den : num/den+1;
 }
 
-volatile uint16_t freq = 9501;
+volatile uint16_t freq = 9500;
 /*
  * Put the sounds into the buffer thing
  */
@@ -153,7 +153,7 @@ void update_dma_buffer(void) {
     // Fill Buffer until factored_buffer size
     for(int i=0;i<factored_buf;i++) {
         // TODO: Fix issue misalignment part 2
-        // NOTE: This shouldn't happen according to calculations. Will figure out later
+        // NOTE: This shouldn't happen according to calculations. Will figure out later issue occuring at 9500Hz
         audio_buffer[i] = sine_lut[iround(i*factored*SAMPLES,factored_buf)&0xfff];
     }
 }
@@ -170,7 +170,7 @@ int main(void) {
         // update_dma_buffer();
         Delay_Ms(100);
         // freq+=10;
-        update_dma_buffer();
-        // printf("DMA1_Channel3->CNTR: %ld\n", DMA1_Channel3->CNTR);
+        // update_dma_buffer();
+        printf("DMA1_Channel3->CNTR: %ld\n", DMA1_Channel3->CNTR);
     }
 }
