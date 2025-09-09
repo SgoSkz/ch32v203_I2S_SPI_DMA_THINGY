@@ -119,34 +119,31 @@ void TIM2_Init_SPI_Trigger(void) {
 }
 
 
+volatile uint16_t freq = 9501;
 /*
  * Put the sounds into the buffer thing
  */
 void update_dma_buffer(void) {
-    int freq = 9001;
-    // uint32_t real_buf = (RATE<<1) / freq;
-    uint32_t factored = freq*1000/(RATE<<1);
+
+	// Get the decimal to be smaller by multiplying it by this value
+	// the "factored" portion
+	// See math here https://www.desmos.com/calculator/vhjwemiqsu
+	// Better solution: Find the number that minimizes the decimal instead of arbitrarily multiplying SAMPLES
+	uint32_t factored = freq*SAMPLES/(RATE<<1);
+
+    // Create factored_buffer size
     uint32_t factored_buf = (RATE<<1) * factored / freq;
+
+    // Debug
     printf("%ld\n", factored);
-    // for(;factored
+
     DMA1_Channel3->CFGR &= ~DMA_CFGR3_EN;
     DMA1_Channel3->CNTR = factored_buf;
     DMA1_Channel3->CFGR |= DMA_CFGR3_EN;
-    // Fill Buffer Completely
-    for(int i=0;i<factored_buf;i++) {
-        // Base Freq * 2
-        audio_buffer[i] = cos_lut[(i*factored*4096/factored_buf)&0xfff];
-        // audio_buffer[i] <<= 0;
 
-        // // Harmonics
-        // for(int j=1;j<4;j++) {
-        //     audio_buffer[i] += cos_lut[2*i*(2*j+1)&(SAMPLES-1)]/(2*j+1);
-        // }
-        // for(int j=1;j<voices;j++) {
-        //     audio_buffer[i] += cos_lut[13*i/2*(2*j)&(SAMPLES-1)]/(voices);
-        // }
-        // audio_buffer[i] >>= 1;
-        // audio_buffer[i] = -SAMPLES+i*4;
+    // Fill Buffer until factored_buffer size
+    for(int i=0;i<factored_buf;i++) {
+        audio_buffer[i] = cos_lut[(i*factored*SAMPLES/factored_buf)&0xfff];
     }
 }
 
@@ -160,7 +157,9 @@ int main(void) {
 
     while(1) {
         // update_dma_buffer();
-        // Delay_Ms(150);
+        Delay_Ms(100);
+        freq+=10;
+        update_dma_buffer();
         // printf("DMA1_Channel3->CNTR: %ld\n", DMA1_Channel3->CNTR);
     }
 }
