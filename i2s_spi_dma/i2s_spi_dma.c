@@ -78,7 +78,7 @@ void SPI1_DMA_Init(void) {
                           DMA_CFGR3_MSIZE_0;
 	DMA1_Channel3->PADDR = (uint32_t)&SPI1->DATAR;
     DMA1_Channel3->MADDR = (uint32_t)audio_buffer;
-    DMA1_Channel3->CNTR  = SAMPLES;
+    DMA1_Channel3->CNTR  = 4041;
 
     // Enable DMA
     DMA1_Channel3->CFGR |= DMA_CFGR3_EN;
@@ -135,9 +135,9 @@ void update_dma_buffer(void) {
 	// Get the decimal to be smaller by multiplying it by this value
 	// the "factored" portion
 	// See math here https://www.desmos.com/calculator/kenuknb777
-	// Better solution: Find the number that minimizes the decimal instead of arbitrarily multiplying SAMPLES and then
-	// rounding
-	uint32_t factored = iround(freq*(SAMPLES-50), (RATE<<1));
+	// Better solution: Find the number that minimizes the decimal instead of arbitrarily multiplying SAMPLES
+    // Also better: rounding > floor
+	uint32_t factored = iround(freq*3000, (RATE<<1));
 
     // Create factored_buffer size
     uint32_t factored_buf = iround((RATE<<1) * factored, freq);
@@ -146,16 +146,21 @@ void update_dma_buffer(void) {
     printf("%lu\n", factored);
     printf("%lu\n", factored_buf);
 
-    DMA1_Channel3->CFGR &= ~DMA_CFGR3_EN;
-    DMA1_Channel3->CNTR = factored_buf;
-    DMA1_Channel3->CFGR |= DMA_CFGR3_EN;
-
     // Fill Buffer until factored_buffer size
     for(int i=0;i<factored_buf;i++) {
         // TODO: Fix issue misalignment part 2
         // NOTE: This shouldn't happen according to calculations. Will figure out later issue occuring at 9500Hz
-        audio_buffer[i] = sine_lut[iround(i*factored*SAMPLES,factored_buf)&0xfff];
+        // NOTE: Issue happens at beginning and end of buffer and each time it loops
+        // HACK: Issue doesn't seem to appear if using "max" buffer size of 3000 
+        // SAMPLES: 2*PI essentially
+        // factored: skip this much through the LUT
+        // factored_buf: size of buffer factored
+        audio_buffer[i] = sine_lut[iround(i*factored*SAMPLES,factored_buf)%4096];
     }
+
+    DMA1_Channel3->CFGR &= ~DMA_CFGR3_EN;
+    DMA1_Channel3->CNTR = factored_buf;
+    DMA1_Channel3->CFGR |= DMA_CFGR3_EN;
 }
 
 int main(void) {
@@ -165,12 +170,14 @@ int main(void) {
     SPI1_DMA_Init();
     TIM2_Init_SPI_Trigger();
     update_dma_buffer();
+    // update_dma_buffer();
 
     while(1) {
         // update_dma_buffer();
         Delay_Ms(100);
-        // freq+=10;
+        // freq+=100;
+        // freq%=25000;
         // update_dma_buffer();
-        printf("DMA1_Channel3->CNTR: %ld\n", DMA1_Channel3->CNTR);
+        printf("DMA1_Channel3->CNTR: %lu\n", DMA1_Channel3->CNTR);
     }
 }
